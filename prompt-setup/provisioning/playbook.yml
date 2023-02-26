@@ -1,0 +1,67 @@
+---
+- name: Setup zsh and config
+  hosts: all
+  become: true
+  vars:
+    user: vagrant
+
+  pre_tasks:
+    - name: Refresh apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+  handlers:
+    - name: Refresh fonts cache
+      ansible.builtin.command:
+        cmd: fc-cache -fv
+
+  tasks:
+    - name: Install ZSH
+      ansible.builtin.package:
+        name: zsh
+        state: present
+
+    - name: Change default shell to zsh
+      ansible.builtin.user:
+        name: "{{ user }}"
+        shell: /bin/zsh
+
+    - name: Download Starship installation script
+      ansible.builtin.get_url:
+        url: https://starship.rs/install.sh
+        dest: /tmp/starship-install.sh
+        mode: 0744
+
+    - name: Install Starship
+      ansible.builtin.command:
+        cmd: sh /tmp/starship-install.sh --yes
+        creates: /usr/local/bin/starship
+
+    - name: Ensure fonts directory exists
+      ansible.builtin.file:
+        path: ~/.fonts
+        state: directory
+        mode: 0744
+      become_user: "{{ user }}"
+
+    - name: Ensure unzip exists
+      ansible.builtin.package:
+        name: unzip
+        state: present
+
+    - name: Ensure fontconfig exists
+      ansible.builtin.package:
+        name: fontconfig
+        state: present
+
+    - name: Download Fira Code Nerd Font required for Starship
+      ansible.builtin.unarchive:
+        src: https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
+        dest: ~/.fonts
+        remote_src: true
+        creates: ~/.fonts/Fira Code Regular Nerd Font Complete.ttf
+      become_user: "{{ user }}"
+      notify: Refresh fonts cache
+
+    # Add copying zsh and starship config
